@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 
+	util "github.com/griffin/cs622-datasec/pkg/util"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -11,6 +13,8 @@ const (
 	createUser = "INSERT INTO users (selector, validator, name, email) VALUES ($1, $2, $3, $4) RETURNING id"
 	getUser    = "SELECT id, name, email FROM users WHERE selector=$1"
 	deleteUser = "DELETE FROM users WHERE id=$1"
+
+	selectorLen = 12
 )
 
 type User struct {
@@ -26,14 +30,14 @@ type userDatastore struct {
 }
 
 type UserDatastore interface {
-	CreateUser(usr User, password string) (*User, error)
-	GetUser(selector string) (*User, error)
-	DeleteUser(usr User) error
+	Create(usr User, password string) (*User, error)
+	Get(string) (*User, error)
+	Delete(usr User) error
 }
 
-func (d *userDatastore) CreateUser(usr User, password string) (*User, error) {
+func (d *userDatastore) Create(usr User, password string) (*User, error) {
 	validator, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	usr.Selector = d.GenerateSelector(selectorLen)
+	usr.Selector = util.GenerateSelector(selectorLen)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +50,7 @@ func (d *userDatastore) CreateUser(usr User, password string) (*User, error) {
 	return &usr, nil
 }
 
-func (d *userDatastore) GetUser(selector string) (*User, error) {
+func (d *userDatastore) Get(selector string) (*User, error) {
 	var usr User
 
 	err := d.sqlClient.QueryRow(getUser, selector).Scan(&usr.ID, &usr.Name, &usr.Email)
@@ -57,7 +61,7 @@ func (d *userDatastore) GetUser(selector string) (*User, error) {
 	return &usr, nil
 }
 
-func (d *userDatastore) DeleteUser(usr User) error {
+func (d *userDatastore) Delete(usr User) error {
 	_, err := d.sqlClient.Exec(deleteUser, usr.ID)
 	if err != nil {
 		return errors.New("delete user failed")

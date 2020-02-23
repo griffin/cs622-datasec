@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -10,14 +11,15 @@ import (
 	"time"
 
 	"github.com/griffin/cs622-datasec/pkg/user"
+	util "github.com/griffin/cs622-datasec/pkg/util"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
 	createSession         = "INSERT INTO sessions (validator, selector, user_id, exp) VALUES ($1, $2, $3, $4)"
-	selectSession         = "SELECT users.id, users.selector, users.email, users.first_name, users.last_name, users.gender, users.dob, sessions.validator, sessions.exp FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.selector=$1 "
-	validateUser          = "SELECT id, selector, validator, first_name, last_name, gender, dob FROM users WHERE email=$1"
+	selectSession         = "SELECT users.id, users.selector, users.email, users.name,  sessions.validator, sessions.exp FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.selector=$1 "
+	validateUser          = "SELECT id, selector, validator, nameFROM users WHERE email=$1"
 	invalidateSession     = "DELETE FROM sessions WHERE selector=$1"
 	invalidateAllSession  = "DELETE FROM sessions WHERE user_id=$1"
 	getAllSessionsForUser = "SELECT selector FROM sessions WHERE user_id=$1"
@@ -27,46 +29,47 @@ const (
 )
 
 type SessionDatastore interface {
-	CreateSession(username, password string) (user.User, string, error)
-	CheckSession(token string) (user.User, error)
-	InvalidateSession(token string) error
+	Create(username, password string) (string, error)
+	Check(token string) (user.User, error)
+	Invalidate(token string) error
+	InvalidateAll(usr user.User) error
 }
 
 type sessionDatastore struct {
 	sqlClient *sql.DB
 }
 
-func (d *sessionDatastore) CreateSession(email, password string) (user.User, string, error) {
-	usr := &user.User{}
+func (d *sessionDatastore) Create(email, password string, duration time.Duration) (string, error) {
 	var validator string
+	var userID uint
 
-	err := d.sqlClient.QueryRow(validateUser, email).Scan(&usr.ID, &usr.sel, &validator, &usr.FirstName, &usr.LastName, &usr.Gender, &usr.DateOfBirth)
+	err := d.sqlClient.QueryRow(validateUser, email).Scan(&userID, &validator)
 	if err != nil {
-		return nil, "", errors.New("couldn't find user")
+		return "", errors.New("couldn't find user")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(validator), []byte(password))
 	if err != nil {
-		return nil, "", errors.New("incorrect password")
+		return "", errors.New("incorrect password")
 	}
 
-	token, err := d.insertSession(usr)
+	token, err := d.insertSession(userID, duration)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 
-	return usr, token, nil
+	return token, nil
 }
 
-func (d *sessionDatastore) insertSession(user user.User) (string, error) {
-	validator := d.GenerateSelector(validatorLen)
-	selector := d.GenerateSelector(selectorLen)
-	exp := time.Now().Add(time.Hour * 2).Unix() //TODO
+func (d *sessionDatastore) insertSession(userID uint, duration time.Duration) (string, error) {
+	validator := util.GenerateSelector(validatorLen)
+	selector := util.GenerateSelector(selectorLen)
+	exp := time.Now().Add(duration).Unix()
 
 	hashValidator := sha256.Sum256([]byte(validator))
 	hashValStr := base64.StdEncoding.EncodeToString(hashValidator[:])
 
-	_, err := d.sqlClient.Exec(createSession, hashValStr, selector, user.ID, exp)
+	_, err := d.sqlClient.Exec(createSession, hashValStr, selector, userID, exp)
 	if err != nil {
 		return "", fmt.Errorf("Could not insert session: %v", err)
 	}
@@ -83,12 +86,10 @@ func (d *sessionDatastore) CheckSession(token string) (user.User, error) {
 
 	var usr user.User
 
-	err := d.sqlClient.QueryRow(selectSession, selector).Scan(&usr.ID, &usr.sel, &usr.Email, &usr.FirstName, &usr.LastName, &valQuery, &exp)
+	err := d.sqlClient.QueryRow(selectSession, selector).Scan(&usr.ID, &usr.Selector, &usr.Email, &usr.Name, &valQuery, &exp)
 	if err != nil {
-		return nil, errors.New("no validator found")
+		return user.User{}, errors.New("no validator found")
 	}
-
-	//check:
 
 	q, err := base64.StdEncoding.DecodeString(valQuery)
 	if err != nil {
@@ -115,12 +116,10 @@ func (d *sessionDatastore) InvalidateSession(token string) error {
 		return errors.New("couldn't invalidate sessions")
 	}
 
-	err = d.sqlClient.Del(selector).Err()
-
 	return nil
 }
 
-func (d *sessionDatastore) InvalidateAllSessions(usr User) error {
+func (d *sessionDatastore) InvalidateAll(usr user.User) error {
 	var v []string
 
 	rows, err := d.sqlClient.Query(getAllSessionsForUser, usr.ID)
@@ -129,8 +128,6 @@ func (d *sessionDatastore) InvalidateAllSessions(usr User) error {
 		rows.Scan(&validator)
 		v = append(v, validator)
 	}
-
-	err = d.Del(v...).Err()
 
 	_, err = d.sqlClient.Exec(invalidateAllSession, usr.ID)
 	if err != nil {
