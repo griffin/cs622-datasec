@@ -16,12 +16,12 @@ import (
 )
 
 type Options struct {
-	SQLUsername string
-	SQLPassword string
-	SQLDatabase string
-	SQLHost     string
-	SQLPort     uint
-	Port        uint
+	SQLUsername string `long:"sql_username" description:"sql account username"`
+	SQLPassword string `long:"sql_password" description:"sql account password"`
+	SQLDatabase string `long:"sql_database" description:"sql database"`
+	SQLHost     string `long:"sql_host" description:"hostname of sql database"`
+	SQLPort     uint   `long:"sql_port" default:"5432" description:"sql port"`
+	Port        uint   `long:"port" default:"8080" description:"api port"`
 }
 
 func (opts Options) GetSQLOptions() datastore.SQLOptions {
