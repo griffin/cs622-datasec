@@ -4,14 +4,14 @@ import (
 	"database/sql"
 	"errors"
 
-	util "github.com/griffin/cs622-datasec/pkg/util"
+	"github.com/griffin/cs622-datasec/pkg/util"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	createUser = "INSERT INTO users (selector, validator, name, email) VALUES ($1, $2, $3, $4) RETURNING id"
-	getUser    = "SELECT id, name, email FROM users WHERE selector=$1"
+	createUser = "INSERT INTO users (selector, validator, name, email, postgres_user) VALUES ($1, $2, $3, $4, $5) RETURNING id"
+	getUser    = "SELECT id, name, email, postgres_user FROM users WHERE selector=$1"
 	deleteUser = "DELETE FROM users WHERE id=$1"
 
 	selectorLen = 12
@@ -21,8 +21,9 @@ type User struct {
 	Selector string
 	ID       uint
 
-	Email string
-	Name  string
+	Email       string
+	Name        string
+	PostgreUser string
 }
 
 type userDatastore struct {
@@ -42,7 +43,7 @@ func (d *userDatastore) Create(usr User, password string) (*User, error) {
 		return nil, err
 	}
 
-	err = d.sqlClient.QueryRow(createUser, usr.Selector, string(validator), usr.Name, usr.Email).Scan(&usr.ID)
+	err = d.sqlClient.QueryRow(createUser, usr.Selector, string(validator), usr.Name, usr.Email, usr.PostgreUser).Scan(&usr.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func (d *userDatastore) Create(usr User, password string) (*User, error) {
 func (d *userDatastore) Get(selector string) (*User, error) {
 	var usr User
 
-	err := d.sqlClient.QueryRow(getUser, selector).Scan(&usr.ID, &usr.Name, &usr.Email)
+	err := d.sqlClient.QueryRow(getUser, selector).Scan(&usr.ID, &usr.Name, &usr.Email, &usr.PostgreUser)
 	if err != nil {
 		return nil, errors.New("Couldn't find user")
 	}

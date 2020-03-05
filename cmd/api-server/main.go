@@ -54,6 +54,13 @@ func main() {
 		Session: ds.Session,
 	}
 
+	qm := routes.QueryManager{}
+
 	router.POST("/v1/login", um.PostLoginRoute)
+	router.POST("/v1/logout", um.PostLogoutRoute)
+	router.POST("/v1/register", um.PostRegisterRoute)
+
+	router.POST("/v1/query", qm.PostQueryRoute)
+
 	log.Fatal(router.Run(fmt.Sprintf(":%v", opts.Port)))
 }
