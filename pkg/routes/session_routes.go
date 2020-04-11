@@ -89,5 +89,5 @@ func (um *UserManager) PostLoginRoute(c *gin.Context) {
 }
 
 func (um *UserManager) PostLogoutRoute(c *gin.Context) {
-	// TODO(griffin)
+	// TODO(griffin): logout not a priority
 }
