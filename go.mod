@@ -7,6 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.5.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/lib/pq v1.3.0
+	github.com/open-policy-agent/opa v0.19.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d

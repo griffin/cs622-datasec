@@ -68,18 +68,16 @@ func (qm *QueryManager) PostQueryRoute(c *gin.Context) {
 		}
 	}(&status)
 
-	/*
-		err = qm.Policy.CheckPolicy(usr, query.SQL)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, Error{
-				Message: "failed policy check",
-			})
-			log.Warn(err)
+	err = qm.Policy.CheckPolicy(usr, query.SQL)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, Error{
+			Message: "failed policy check",
+		})
+		log.Warn(err)
 
-			status = audit.QueryFailedPolicy
-			return
-		}
-	*/
+		status = audit.QueryFailedPolicy
+		return
+	}
 
 	res, err := qm.Query.Query(usr, query.SQL)
 	if err != nil {

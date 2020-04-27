@@ -208,15 +208,35 @@ provide automatic notification os suspicious audit entries.
 #### Policy
 
 The policy module validates query metadata against a policy written in the rego
-policy engine. Policies can be written to guard a large number of things such
+policy language. Policies can be written to guard a large number of things such
 as disabling querying password columns across the board. Most of this metadata
 comes from parsing the query itself, but additional metadata could easily be
 added to the policy engine to extend functionality.
 
-An example policy is shown below that doesn't allow querying any column with a
-column named `user_password`:
+An example policy is shown below that doesn't allow you to make a query that
+uses the `*` to select columns and doesn't allow you to select `bank_id`.
+
 ```rego
-allow = true {
-  columns[_] != "user_passowrd"  
+package sql
+
+default allow = false
+
+contains(arr, elem) {
+    arr[_] = elem
+}
+
+allow {
+    not contains(input.cols, "bank_id")
+    input.star = false
 }
 ```
+
+This can be useful to prevent bad SQL practices like using the `*`, or to
+prevent access to columns across the board. Currently the policies only have
+access to the column names, tables names and if the query is using the `*`
+operator. This could easily be extented to provide additional metadata such as
+the amount of recent queries by the user or additional data from the SQL AST.
+
+The policy is evaluated using [Open Policy Agent](https://www.openpolicyagent.org/),
+which can also be deployed as a separate component, but it
+is currently integrated into the api using the Golang API.

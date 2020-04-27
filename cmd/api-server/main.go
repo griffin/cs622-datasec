@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -29,8 +29,7 @@ type Options struct {
 	SQLHost     string `long:"sql_host" description:"hostname of sql database"`
 	SQLPort     uint   `long:"sql_port" default:"5432" description:"sql port"`
 	Port        uint   `long:"port" default:"8080" description:"api port"`
-
-	PolicyURL string `long:"policy"  description:"url of policy service"`
+	PolicyFile  string `long:"policy_file"`
 }
 
 func (opts Options) GetSQLOptions() datastore.SQLOptions {
@@ -60,12 +59,12 @@ func main() {
 
 	a := audit.NewDBAuditHandler(ds.SQLClient)
 
-	policyURL, err := url.Parse(opts.PolicyURL)
+	content, err := ioutil.ReadFile(opts.PolicyFile)
 	if err != nil {
-		log.Fatalf("failed to parse url: %v", err)
+		log.Fatal(err)
 	}
 
-	p := policy.NewHttpPolicyHandler(policyURL)
+	p := policy.NewHttpPolicyHandler(string(content))
 
 	s := session.NewSessionDatastoreHandler(ds.SQLClient)
 	um := routes.UserManager{
