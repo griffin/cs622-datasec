@@ -1,12 +1,14 @@
 package routes
 
 import (
+	"net/http"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
 	"github.com/griffin/cs622-datasec/pkg/session"
 	"github.com/griffin/cs622-datasec/pkg/user"
-	"net/http"
 )
 
 type UserManager struct {
@@ -15,17 +17,17 @@ type UserManager struct {
 }
 
 type UserCreate struct {
-	Name     string
-	Email    string
-	Password string
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type Error struct {
-	Message string
+	Message string `json:"message"`
 }
 
 type TokenResponse struct {
-	Token string
+	Token string `json:"token"`
 }
 
 func (uc UserCreate) ToUser() user.User {
@@ -36,8 +38,8 @@ func (uc UserCreate) ToUser() user.User {
 }
 
 type UserLogin struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 func (um *UserManager) PostRegisterRoute(c *gin.Context) {
@@ -74,7 +76,7 @@ func (um *UserManager) PostLoginRoute(c *gin.Context) {
 		return
 	}
 
-	token, err := um.Session.Create(userLogin.Email, userLogin.Password)
+	token, err := um.Session.Create(userLogin.Email, userLogin.Password, time.Hour*2)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, Error{
 			Message: "could not authenticate",

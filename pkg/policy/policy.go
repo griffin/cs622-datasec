@@ -33,7 +33,7 @@ func NewHttpPolicyHandler(url *url.URL) PolicyHandler {
 func (h *httpPolicyHandler) CheckPolicy(usr user.User, query string) error {
 	resp, err := http.PostForm(
 		fmt.Sprintf("%v/enforce", h.baseURL.Host),
-		url.Values{"sql": []string{query}, "user": []string{usr.PostgreUser}},
+		url.Values{"sql": []string{query}, "user": []string{usr.PostgresUser}},
 	)
 	if err != nil {
 		return err

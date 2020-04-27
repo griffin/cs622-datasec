@@ -21,9 +21,9 @@ type User struct {
 	Selector string
 	ID       uint
 
-	Email       string
-	Name        string
-	PostgreUser string
+	Email        string
+	Name         string
+	PostgresUser string
 }
 
 type userDatastore struct {
@@ -36,6 +36,12 @@ type UserDatastore interface {
 	Delete(usr User) error
 }
 
+func NewUserDatastoreHandler(db *sql.DB) UserDatastore {
+	return &userDatastore{
+		sqlClient: db,
+	}
+}
+
 func (d *userDatastore) Create(usr User, password string) (*User, error) {
 	validator, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	usr.Selector = util.GenerateSelector(selectorLen)
@@ -43,7 +49,7 @@ func (d *userDatastore) Create(usr User, password string) (*User, error) {
 		return nil, err
 	}
 
-	err = d.sqlClient.QueryRow(createUser, usr.Selector, string(validator), usr.Name, usr.Email, usr.PostgreUser).Scan(&usr.ID)
+	err = d.sqlClient.QueryRow(createUser, usr.Selector, string(validator), usr.Name, usr.Email, usr.PostgresUser).Scan(&usr.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +60,7 @@ func (d *userDatastore) Create(usr User, password string) (*User, error) {
 func (d *userDatastore) Get(selector string) (*User, error) {
 	var usr User
 
-	err := d.sqlClient.QueryRow(getUser, selector).Scan(&usr.ID, &usr.Name, &usr.Email, &usr.PostgreUser)
+	err := d.sqlClient.QueryRow(getUser, selector).Scan(&usr.ID, &usr.Name, &usr.Email, &usr.PostgresUser)
 	if err != nil {
 		return nil, errors.New("Couldn't find user")
 	}

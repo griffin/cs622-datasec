@@ -4,16 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/griffin/cs622-datasec/pkg/session"
-	"github.com/griffin/cs622-datasec/pkg/user"
 	_ "github.com/lib/pq" // Postgres driver
 )
 
 type Datastore struct {
-	Session session.SessionDatastore
-	User    user.UserDatastore
-
-	sqlClient *sql.DB
+	SQLClient *sql.DB
 }
 
 type SQLOptions struct {
@@ -35,9 +30,6 @@ func New(sqlOpt SQLOptions) (*Datastore, error) {
 	}
 
 	return &Datastore{
-		Session: nil,
-		User:    nil,
-
-		sqlClient: d,
+		SQLClient: d,
 	}, nil
 }

@@ -18,8 +18,8 @@ import (
 
 const (
 	createSession         = "INSERT INTO sessions (validator, selector, user_id, exp) VALUES ($1, $2, $3, $4)"
-	selectSession         = "SELECT users.id, users.selector, users.email, users.name,  sessions.validator, sessions.exp FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.selector=$1 "
-	validateUser          = "SELECT id, selector, validator, nameFROM users WHERE email=$1"
+	selectSession         = "SELECT users.id, users.selector, users.email, users.name, users.postgres_user, sessions.validator, sessions.exp FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.selector=$1 "
+	validateUser          = "SELECT id, validator FROM users WHERE email=$1"
 	invalidateSession     = "DELETE FROM sessions WHERE selector=$1"
 	invalidateAllSession  = "DELETE FROM sessions WHERE user_id=$1"
 	getAllSessionsForUser = "SELECT selector FROM sessions WHERE user_id=$1"
@@ -29,7 +29,7 @@ const (
 )
 
 type SessionDatastore interface {
-	Create(username, password string) (string, error)
+	Create(username, password string, duration time.Duration) (string, error)
 	Check(token string) (user.User, error)
 	Invalidate(token string) error
 	InvalidateAll(usr user.User) error
@@ -39,18 +39,24 @@ type sessionDatastore struct {
 	sqlClient *sql.DB
 }
 
+func NewSessionDatastoreHandler(db *sql.DB) SessionDatastore {
+	return &sessionDatastore{
+		sqlClient: db,
+	}
+}
+
 func (d *sessionDatastore) Create(email, password string, duration time.Duration) (string, error) {
 	var validator string
 	var userID uint
 
 	err := d.sqlClient.QueryRow(validateUser, email).Scan(&userID, &validator)
 	if err != nil {
-		return "", errors.New("couldn't find user")
+		return "", fmt.Errorf("couldn't find user: %w", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(validator), []byte(password))
 	if err != nil {
-		return "", errors.New("incorrect password")
+		return "", fmt.Errorf("incorrect password: %w", err)
 	}
 
 	token, err := d.insertSession(userID, duration)
@@ -64,7 +70,7 @@ func (d *sessionDatastore) Create(email, password string, duration time.Duration
 func (d *sessionDatastore) insertSession(userID uint, duration time.Duration) (string, error) {
 	validator := util.GenerateSelector(validatorLen)
 	selector := util.GenerateSelector(selectorLen)
-	exp := time.Now().Add(duration).Unix()
+	exp := time.Now().Add(duration)
 
 	hashValidator := sha256.Sum256([]byte(validator))
 	hashValStr := base64.StdEncoding.EncodeToString(hashValidator[:])
@@ -77,18 +83,18 @@ func (d *sessionDatastore) insertSession(userID uint, duration time.Duration) (s
 	return fmt.Sprintf("%v:%v", selector, validator), nil
 }
 
-func (d *sessionDatastore) CheckSession(token string) (user.User, error) {
+func (d *sessionDatastore) Check(token string) (user.User, error) {
 	split := strings.Split(token, ":")
 	selector := split[0]
 	validator := sha256.Sum256([]byte(split[1]))
 	var valQuery string
-	var exp int64
+	var exp time.Time
 
 	var usr user.User
 
-	err := d.sqlClient.QueryRow(selectSession, selector).Scan(&usr.ID, &usr.Selector, &usr.Email, &usr.Name, &valQuery, &exp)
+	err := d.sqlClient.QueryRow(selectSession, selector).Scan(&usr.ID, &usr.Selector, &usr.Email, &usr.Name, &usr.PostgresUser, &valQuery, &exp)
 	if err != nil {
-		return user.User{}, errors.New("no validator found")
+		return user.User{}, fmt.Errorf("no validator found: %w", err)
 	}
 
 	q, err := base64.StdEncoding.DecodeString(valQuery)
@@ -100,14 +106,14 @@ func (d *sessionDatastore) CheckSession(token string) (user.User, error) {
 		return user.User{}, fmt.Errorf("validator != valQ")
 	}
 
-	if time.Now().Unix() > exp {
-		return user.User{}, fmt.Errorf("expired session")
+	if exp.After(time.Now()) {
+		return user.User{}, fmt.Errorf("expired session: now %v, exp %v", time.Now(), exp)
 	}
 
 	return usr, nil
 }
 
-func (d *sessionDatastore) InvalidateSession(token string) error {
+func (d *sessionDatastore) Invalidate(token string) error {
 	split := strings.Split(token, ":")
 	selector := split[0]
 

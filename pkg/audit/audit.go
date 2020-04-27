@@ -1,9 +1,8 @@
 package audit
 
 import (
+	"database/sql"
 	"fmt"
-	"net/http"
-	"net/url"
 
 	"github.com/griffin/cs622-datasec/pkg/user"
 )
@@ -11,12 +10,13 @@ import (
 type QueryStatus string
 
 const (
-	QueryRecieved            QueryStatus = "recieved"
 	QuerySuccess             QueryStatus = "success"
 	QueryFailedPolicy        QueryStatus = "failed_policy"
-	QueryFailedValidation    QueryStatus = "failed_validation"
-	QueryFailedAudit         QueryStatus = "failed_audit"
 	QueryFailedAuthorization QueryStatus = "failed_authorization"
+)
+
+const (
+	insertLog = "INSERT INTO audit_query (user_id, postgres_user, status, query) VALUES ($1, $2, $3, $4)"
 )
 
 type AuditHandler interface {
@@ -25,27 +25,20 @@ type AuditHandler interface {
 	LogQuery(usr user.User, status QueryStatus, query string) error
 }
 
-type httpAuditHandler struct {
-	baseURL *url.URL
+type dbAuditHandler struct {
+	sqlClient *sql.DB
 }
 
-func NewHttpAuditHandler(url *url.URL) AuditHandler {
-	return &httpAuditHandler{
-		baseURL: url,
+func NewDBAuditHandler(db *sql.DB) AuditHandler {
+	return &dbAuditHandler{
+		sqlClient: db,
 	}
 }
 
-func (h *httpAuditHandler) LogQuery(usr user.User, status QueryStatus, query string) error {
-	resp, err := http.PostForm(
-		fmt.Sprintf("%v/audit", h.baseURL.Host),
-		url.Values{"sql": []string{query}, "user": []string{usr.PostgreUser}, "status": []string{string(status)}},
-	)
+func (h *dbAuditHandler) LogQuery(usr user.User, status QueryStatus, query string) error {
+	_, err := h.sqlClient.Exec(insertLog, usr.ID, usr.PostgresUser, status, query)
 	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to log query")
+		return fmt.Errorf("Could not insert log: %v", err)
 	}
 
 	return nil

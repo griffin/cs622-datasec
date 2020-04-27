@@ -1,0 +1,19 @@
+Griffin Dunn
+- The main API server, including the query logic, HTTP interface, authentication
+  module and parts of the audit module
+- The README.md for all of the code description
+- "Architecture" and "Implementation" sections of the paper
+- Setting up AWS infrastructure for testing
+
+Steven Simmons
+- Design for the Audit module
+- Postgres trigger for integrating the audit module into the database system
+- "Current Status and Future Plans" and "Ethics and Legal Considerations"
+  sections of the paper
+- Example data model and data
+
+Aravind Vicinthangal Prathivaathi
+- Design for the Policy Module
+- "Introduction", "Design Considerations" sections of the paper
+- Poster
+- Editor of the paper
