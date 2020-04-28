@@ -8,7 +8,8 @@ Show help menu:
 `go run cmd/api-server/main.go --help`
 
 Normal Usage:
-```
+
+```bash
 go mod vendor
 go run cmd/api-server/main.go \
   --sql_username="postgres" \
@@ -18,6 +19,12 @@ go run cmd/api-server/main.go \
   --sql_port=5432 \
   --port=8080
 ```
+
+or alternatively run:
+
+`make run`
+
+For initial setup you must also run the two SQL scripts in the `scripts` folder.
 
 ## Organization of Code
 
